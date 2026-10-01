@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>團隊目標管理系統 (Team Goals Tracker)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .completed-task {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- Header -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-brand-600 text-white p-2 rounded-xl shadow-md flex items-center justify-center w-10 h-10">
+                    <i class="fa-solid fa-bullseye text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">團隊目標儀表板</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Team OKRs & Goals Tracker</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="openModal()" class="inline-flex items-center px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl shadow-sm transition-all duration-150 transform active:scale-95">
+                    <i class="fa-solid fa-plus mr-2"></i> 新增目標
+                </button>
+                <button onclick="toggleDarkMode()" class="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" title="切換深色模式">
+                    <i id="theme-icon" class="fa-solid fa-moon text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Notification Toast -->
+        <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white dark:bg-white dark:text-slate-950 px-4 py-3 rounded-xl shadow-lg flex items-center space-x-2 text-sm font-medium">
+            <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+            <span id="toast-msg">操作成功</span>
+        </div>
+
+        <!-- Dashboard Overview Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <!-- 短程目標卡片 -->
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 dark:bg-blue-900/20 rounded-bl-full -mr-6 -mt-6 pointer-events-none"></div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg">短程目標 (Sprint)</span>
+                    <span id="short-count" class="text-sm font-bold text-slate-700 dark:text-slate-300">0 / 0</span>
+                </div>
+                <div class="flex items-baseline space-x-2 mb-3">
+                    <h3 id="short-completed-text" class="text-2xl font-extrabold text-slate-900 dark:text-white">0%</h3>
+                    <span class="text-xs text-slate-500">完成率</span>
+                </div>
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-100 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                    <div id="short-progress" class="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 中程目標卡片 -->
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-50 dark:bg-indigo-900/20 rounded-bl-full -mr-6 -mt-6 pointer-events-none"></div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-lg">中程目標 (Quarter)</span>
+                    <span id="mid-count" class="text-sm font-bold text-slate-700 dark:text-slate-300">0 / 0</span>
+                </div>
+                <div class="flex items-baseline space-x-2 mb-3">
+                    <h3 id="mid-completed-text" class="text-2xl font-extrabold text-slate-900 dark:text-white">0%</h3>
+                    <span class="text-xs text-slate-500">完成率</span>
+                </div>
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-100 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                    <div id="mid-progress" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 長程目標卡片 -->
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-purple-50 dark:bg-purple-900/20 rounded-bl-full -mr-6 -mt-6 pointer-events-none"></div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2.5 py-1 rounded-lg">長程目標 (Vision)</span>
+                    <span id="long-count" class="text-sm font-bold text-slate-700 dark:text-slate-300">0 / 0</span>
+                </div>
+                <div class="flex items-baseline space-x-2 mb-3">
+                    <h3 id="long-completed-text" class="text-2xl font-extrabold text-slate-900 dark:text-white">0%</h3>
+                    <span class="text-xs text-slate-500">完成率</span>
+                </div>
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-100 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                    <div id="long-progress" class="bg-purple-600 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls & Tab Navigation -->
+        <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <!-- Tabs -->
+            <div class="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
+                <button onclick="switchTab('all')" id="tab-all" class="flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-600 shadow-sm">全部目標</button>
+                <button onclick="switchTab('short')" id="tab-short" class="flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900">短程</button>
+                <button onclick="switchTab('mid')" id="tab-mid" class="flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900">中程</button>
+                <button onclick="switchTab('long')" id="tab-long" class="flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900">長程</button>
+            </div>
+
+            <!-- Search & Filter -->
+            <div class="flex items-center space-x-2">
+                <div class="relative flex-grow sm:w-64">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-search text-xs"></i>
+                    </span>
+                    <input type="text" id="search-input" oninput="renderGoals()" placeholder="搜尋目標或負責人..." class="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-800 dark:text-slate-100">
+                </div>
+            </div>
+        </div>
+
+        <!-- Goals List Container -->
+        <div id="goals-container" class="space-y-3">
+            <!-- Dynamic goals will be injected here -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden flex-col items-center justify-center py-16 text-center bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+            <div class="w-16 h-16 bg-slate-100 dark:bg-slate-700 text-slate-400 rounded-full flex items-center justify-center text-2xl mb-3">
+                <i class="fa-solid fa-clipboard-list"></i>
+            </div>
+            <h4 class="text-base font-semibold text-slate-700 dark:text-slate-300">目前沒有相關目標</h4>
+            <p class="text-xs text-slate-500 mt-1">點擊上方「新增目標」按鈕開始建立團隊計畫。</p>
+        </div>
+
+    </main>
+
+    <!-- Add/Edit Modal -->
+    <div id="goal-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-lg mx-4 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700 transform scale-95 transition-transform duration-200 overflow-hidden" id="modal-card">
+            <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                <h3 id="modal-title" class="text-lg font-bold text-slate-900 dark:text-white">新增團隊目標</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form id="goal-form" onsubmit="handleFormSubmit(event)" class="p-6 space-y-4">
+                <input type="hidden" id="goal-id">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">目標名稱 *</label>
+                    <input type="text" id="goal-title-input" required placeholder="例如：完成第三季行銷漏斗優化" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-slate-900 dark:text-white">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">目標時程 *</label>
+                        <select id="goal-category-input" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-slate-900 dark:text-white">
+                            <option value="short">短程目標 (Sprint)</option>
+                            <option value="mid">中程目標 (Quarter)</option>
+                            <option value="long">長程目標 (Vision)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">優先級</label>
+                        <select id="goal-priority-input" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-slate-900 dark:text-white">
+                            <option value="high">高 (High)</option>
+                            <option value="medium" selected>中 (Medium)</option>
+                            <option value="low">低 (Low)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">負責人 / 團隊</label>
+                        <input type="text" id="goal-owner-input" placeholder="例如：行銷部 / Alex" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-slate-900 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">截止日期</label>
+                        <input type="date" id="goal-duedate-input" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-slate-900 dark:text-white">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">詳細描述</label>
+                    <textarea id="goal-desc-input" rows="3" placeholder="補充目標細節、關鍵績效指標 (KPI) 等..." class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-slate-900 dark:text-white"></textarea>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors">取消</button>
+                    <button type="submit" class="px-5 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm transition-all">儲存目標</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-auto py-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
+        <p>團隊目標管理系統 &copy; 2026 | 支援 LocalStorage 本地儲存與響應式瀏覽</p>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // State Management
+        let goals = JSON.parse(localStorage.getItem('team_goals_data')) || [
+            { id: '1', title: '完成新版產品 UI 規範設計', category: 'short', priority: 'high', owner: '設計團隊 / Lisa', dueDate: '2026-04-15', desc: '包含元件庫與黑暗模式配色方案。', completed: true },
+            { id: '2', title: '伺服器架構遷移至雲端微服務', category: 'mid', priority: 'high', owner: '工程部 / David', dueDate: '2026-06-30', desc: '提升系統吞吐量與可用性至 99.9%。', completed: false },
+            { id: '3', title: '達成亞太市場市佔率 15%', category: 'long', priority: 'medium', owner: '營運與行銷部', dueDate: '2026-12-31', desc: '擴展海外據點與在地化合作夥伴。', completed: false }
+        ];
+
+        let currentTab = 'all';
+
+        // Initialize on load
+        window.onload = function() {
+            // Check system dark mode preference
+            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-icon').className = 'fa-solid fa-sun text-lg';
+            }
+            renderGoals();
+        };
+
+        // Toggle Dark Mode
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                icon.className = 'fa-solid fa-moon text-lg';
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                icon.className = 'fa-solid fa-sun text-lg';
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('team_goals_data', JSON.stringify(goals));
+        }
+
+        // Toast Notification helper
+        function showToast(message, isSuccess = true) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.textContent = message;
+            toastIcon.className = isSuccess ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-solid fa-circle-exclamation text-amber-400';
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Modal Controls
+        function openModal(id = null) {
+            const modal = document.getElementById('goal-modal');
+            const modalCard = document.getElementById('modal-card');
+            const modalTitle = document.getElementById('modal-title');
+            
+            document.getElementById('goal-form').reset();
+            document.getElementById('goal-id').value = '';
+
+            if (id) {
+                modalTitle.textContent = '編輯團隊目標';
+                const goal = goals.find(g => g.id === id);
+                if (goal) {
+                    document.getElementById('goal-id').value = goal.id;
+                    document.getElementById('goal-title-input').value = goal.title;
+                    document.getElementById('goal-category-input').value = goal.category;
+                    document.getElementById('goal-priority-input').value = goal.priority;
+                    document.getElementById('goal-owner-input').value = goal.owner || '';
+                    document.getElementById('goal-duedate-input').value = goal.dueDate || '';
+                    document.getElementById('goal-desc-input').value = goal.desc || '';
+                }
+            } else {
+                modalTitle.textContent = '新增團隊目標';
+            }
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modalCard.classList.remove('scale-95');
+            modalCard.classList.add('scale-100');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('goal-modal');
+            const modalCard = document.getElementById('modal-card');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modalCard.classList.remove('scale-100');
+            modalCard.classList.add('scale-95');
+        }
+
+        // Handle Form Submit (Add or Edit)
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('goal-id').value;
+            const title = document.getElementById('goal-title-input').value.trim();
+            const category = document.getElementById('goal-category-input').value;
+            const priority = document.getElementById('goal-priority-input').value;
+            const owner = document.getElementById('goal-owner-input').value.trim();
+            const dueDate = document.getElementById('goal-duedate-input').value;
+            const desc = document.getElementById('goal-desc-input').value.trim();
+
+            if (!title) return;
+
+            if (id) {
+                // Edit
+                goals = goals.map(g => g.id === id ? { ...g, title, category, priority, owner, dueDate, desc } : g);
+                showToast('目標更新成功');
+            } else {
+                // Add
+                const newGoal = {
+                    id: Date.now().toString(),
+                    title,
+                    category,
+                    priority,
+                    owner,
+                    dueDate,
+                    desc,
+                    completed: false
+                };
+                goals.unshift(newGoal);
+                showToast('成功新增目標');
+            }
+
+            saveData();
+            closeModal();
+            renderGoals();
+        }
+
+        // Toggle goal completion status
+        function toggleGoalStatus(id) {
+            goals = goals.map(g => {
+                if (g.id === id) {
+                    const newStatus = !g.completed;
+                    showToast(newStatus ? '已確認完成目標！' : '已標記為未完成');
+                    return { ...g, completed: newStatus };
+                }
+                return g;
+            });
+            saveData();
+            renderGoals();
+        }
+
+        // Delete goal
+        function deleteGoal(id) {
+            if (confirm('確定要刪除這個目標嗎？')) {
+                goals = goals.filter(g => g.id !== id);
+                saveData();
+                renderGoals();
+                showToast('目標已刪除', false);
+            }
+        }
+
+        // Switch Tabs
+        function switchTab(tab) {
+            currentTab = tab;
+            ['all', 'short', 'mid', 'long'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tab) {
+                    btn.className = 'flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-600 shadow-sm';
+                } else {
+                    btn.className = 'flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900';
+                }
+            });
+            renderGoals();
+        }
+
+        // Render Dashboard Statistics
+        function updateDashboardStats() {
+            const categories = ['short', 'mid', 'long'];
+            
+            categories.forEach(cat => {
+                const catGoals = goals.filter(g => g.category === cat);
+                const total = catGoals.length;
+                const completed = catGoals.filter(g => g.completed).length;
+                const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+                document.getElementById(`${cat}-count`).textContent = `${completed} / ${total}`;
+                document.getElementById(`${cat}-completed-text`).textContent = `${percent}%`;
+                document.getElementById(`${cat}-progress`).style.width = `${percent}%`;
+            });
+        }
+
+        // Render Goals List
+        function renderGoals() {
+            updateDashboardStats();
+
+            const container = document.getElementById('goals-container');
+            const emptyState = document.getElementById('empty-state');
+            const searchQuery = document.getElementById('search-input').value.toLowerCase();
+
+            // Filter by tab and search query
+            let filtered = goals.filter(g => {
+                const matchesTab = currentTab === 'all' || g.category === currentTab;
+                const matchesSearch = g.title.toLowerCase().includes(searchQuery) || (g.owner && g.owner.toLowerCase().includes(searchQuery));
+                return matchesTab && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+                return;
+            }
+
+            emptyState.classList.remove('flex');
+            emptyState.classList.add('hidden');
+
+            const categoryNames = {
+                short: { label: '短程', color: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+                mid: { label: '中程', color: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' },
+                long: { label: '長程', color: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' }
+            };
+
+            const priorityBadges = {
+                high: { label: '高', color: 'bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200' },
+                medium: { label: '中', color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200' },
+                low: { label: '低', color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200' }
+            };
+
+            container.innerHTML = filtered.map(g => `
+                <div class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all hover:shadow-md">
+                    <div class="flex items-start space-x-3.5 flex-grow">
+                        <!-- Checkbox Button -->
+                        <button onclick="toggleGoalStatus('${g.id}')" class="mt-1 flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${g.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 dark:border-slate-600 hover:border-brand-500'}">
+                            ${g.completed ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                        </button>
+                        
+                        <div class="space-y-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="px-2 py-0.5 text-xs font-semibold rounded-md ${categoryNames[g.category].color}">
+                                    ${categoryNames[g.category].label}
+                                </span>
+                                <span class="px-2 py-0.5 text-xs font-medium rounded-md border ${priorityBadges[g.priority].color}">
+                                    優先級: ${priorityBadges[g.priority].label}
+                                </span>
+                            </div>
+                            <h4 class="text-base font-semibold text-slate-900 dark:text-white ${g.completed ? 'completed-task' : ''}">
+                                ${escapeHtml(g.title)}
+                            </h4>
+                            ${g.desc ? `<p class="text-xs text-slate-500 dark:text-slate-400 ${g.completed ? 'opacity-50' : ''}">${escapeHtml(g.desc)}</p>` : ''}
+                            
+                            <div class="flex flex-wrap items-center gap-4 pt-1 text-xs text-slate-400">
+                                ${g.owner ? `<span><i class="fa-solid fa-user-tag mr-1"></i>${escapeHtml(g.owner)}</span>` : ''}
+                                ${g.dueDate ? `<span><i class="fa-regular fa-calendar mr-1"></i>${g.dueDate}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-center space-x-2 self-end sm:self-center">
+                        <button onclick="openModal('${g.id}')" class="p-2 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors" title="編輯">
+                            <i class="fa-solid fa-pen-to-square text-sm"></i>
+                        </button>
+                        <button onclick="deleteGoal('${g.id}')" class="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors" title="刪除">
+                            <i class="fa-solid fa-trash-can text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Utility to prevent XSS
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
