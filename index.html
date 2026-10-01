@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>團隊目標管理系統 (Team Goals Tracker)</title>
+    <title>團隊目標管理系統 (Real-time Team Goals)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -46,8 +46,11 @@
                     <i class="fa-solid fa-bullseye text-lg"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">團隊目標儀表板</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Team OKRs & Goals Tracker</p>
+                    <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">團隊即時目標儀表板</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 flex items-center">
+                        <span id="sync-status-dot" class="w-2 h-2 rounded-full bg-amber-500 inline-block mr-1.5 animate-pulse"></span>
+                        <span id="sync-status-text">連線同步中...</span>
+                    </p>
                 </div>
             </div>
             <div class="flex items-center space-x-3">
@@ -145,8 +148,14 @@
             </div>
         </div>
 
+        <!-- Loading State Spinner -->
+        <div id="loading-state" class="flex flex-col items-center justify-center py-20">
+            <div class="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p class="text-sm text-slate-500">正在從雲端載入團隊目標...</p>
+        </div>
+
         <!-- Goals List Container -->
-        <div id="goals-container" class="space-y-3">
+        <div id="goals-container" class="space-y-3 hidden">
             <!-- Dynamic goals will be injected here -->
         </div>
 
@@ -215,39 +224,101 @@
 
                 <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100 dark:border-slate-700">
                     <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors">取消</button>
-                    <button type="submit" class="px-5 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm transition-all">儲存目標</button>
+                    <button type="submit" id="submit-btn" class="px-5 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm transition-all">儲存目標</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- Footer -->
-    <footer class="mt-auto py-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
-        <p>團隊目標管理系統 &copy; 2026 | 支援 LocalStorage 本地儲存與響應式瀏覽</p>
-    </footer>
+    <main-footer class="mt-auto py-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
+        <p>團隊即時目標管理系統 &copy; 2026 | Firebase Firestore 即時雲端同步</p>
+    </main-footer>
 
-    <!-- JavaScript Application Logic -->
-    <script>
-        // State Management
-        let goals = JSON.parse(localStorage.getItem('team_goals_data')) || [
-            { id: '1', title: '完成新版產品 UI 規範設計', category: 'short', priority: 'high', owner: '設計團隊 / Lisa', dueDate: '2026-04-15', desc: '包含元件庫與黑暗模式配色方案。', completed: true },
-            { id: '2', title: '伺服器架構遷移至雲端微服務', category: 'mid', priority: 'high', owner: '工程部 / David', dueDate: '2026-06-30', desc: '提升系統吞吐量與可用性至 99.9%。', completed: false },
-            { id: '3', title: '達成亞太市場市佔率 15%', category: 'long', priority: 'medium', owner: '營運與行銷部', dueDate: '2026-12-31', desc: '擴展海外據點與在地化合作夥伴。', completed: false }
-        ];
+    <!-- Firebase SDK Imports & App Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        let currentTab = 'all';
-
-        // Initialize on load
-        window.onload = function() {
-            // Check system dark mode preference
-            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                document.documentElement.classList.add('dark');
-                document.getElementById('theme-icon').className = 'fa-solid fa-sun text-lg';
-            }
-            renderGoals();
+        // Firebase configuration provided by user
+        const firebaseConfig = {
+            apiKey: "AIzaSyCRE1lQYR4RcIuZBbdwZgrDMK2fZ8718eM",
+            authDomain: "teamgoalsforshihcheng.firebaseapp.com",
+            projectId: "teamgoalsforshihcheng",
+            storageBucket: "teamgoalsforshihcheng.firebasestorage.app",
+            messagingSenderId: "405774715416",
+            appId: "1:405774715416:web:cc60e8dc136f7da0a8516d",
+            measurementId: "G-05K19NYPLT"
         };
 
-        // Toggle Dark Mode
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'team-goals-shihcheng';
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let goals = [];
+        let currentTab = 'all';
+
+        // Global functions exposed to window for HTML event handlers
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.handleFormSubmit = handleFormSubmit;
+        window.toggleGoalStatus = toggleGoalStatus;
+        window.deleteGoal = deleteGoal;
+        window.switchTab = switchTab;
+        window.toggleDarkMode = toggleDarkMode;
+        window.renderGoals = renderGoals;
+
+        // Authentication and Data Listener Initialization
+        async function initApp() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Update sync status indicator
+                const dot = document.getElementById('sync-status-dot');
+                const text = document.getElementById('sync-status-text');
+                dot.className = "w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1.5";
+                text.textContent = "即時同步連線中";
+
+                // Setup Firestore real-time listener following RULE 1 & RULE 2
+                const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'goals');
+                
+                onSnapshot(collectionRef, (snapshot) => {
+                    goals = [];
+                    snapshot.forEach((docSnap) => {
+                        goals.push({ id: docSnap.id, ...docSnap.data() });
+                    });
+
+                    // Sort by newest first or created timestamp if available
+                    goals.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+                    document.getElementById('loading-state').classList.add('hidden');
+                    document.getElementById('goals-container').classList.remove('hidden');
+                    renderGoals();
+                }, (error) => {
+                    console.error("Firestore sync error:", error);
+                    showToast("雲端同步發生錯誤，請檢查網路連線", false);
+                });
+
+            } catch (err) {
+                console.error("Auth error:", err);
+                showToast("身分驗證失敗", false);
+            }
+        }
+
+        // Initialize theme on load
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            document.getElementById('theme-icon').className = 'fa-solid fa-sun text-lg';
+        }
+
         function toggleDarkMode() {
             const html = document.documentElement;
             const icon = document.getElementById('theme-icon');
@@ -262,12 +333,6 @@
             }
         }
 
-        // Save data to localStorage
-        function saveData() {
-            localStorage.setItem('team_goals_data', JSON.stringify(goals));
-        }
-
-        // Toast Notification helper
         function showToast(message, isSuccess = true) {
             const toast = document.getElementById('toast');
             const toastMsg = document.getElementById('toast-msg');
@@ -282,7 +347,6 @@
             }, 3000);
         }
 
-        // Modal Controls
         function openModal(id = null) {
             const modal = document.getElementById('goal-modal');
             const modalCard = document.getElementById('modal-card');
@@ -296,9 +360,9 @@
                 const goal = goals.find(g => g.id === id);
                 if (goal) {
                     document.getElementById('goal-id').value = goal.id;
-                    document.getElementById('goal-title-input').value = goal.title;
-                    document.getElementById('goal-category-input').value = goal.category;
-                    document.getElementById('goal-priority-input').value = goal.priority;
+                    document.getElementById('goal-title-input').value = goal.title || '';
+                    document.getElementById('goal-category-input').value = goal.category || 'short';
+                    document.getElementById('goal-priority-input').value = goal.priority || 'medium';
                     document.getElementById('goal-owner-input').value = goal.owner || '';
                     document.getElementById('goal-duedate-input').value = goal.dueDate || '';
                     document.getElementById('goal-desc-input').value = goal.desc || '';
@@ -320,8 +384,7 @@
             modalCard.classList.add('scale-95');
         }
 
-        // Handle Form Submit (Add or Edit)
-        function handleFormSubmit(e) {
+        async function handleFormSubmit(e) {
             e.preventDefault();
             const id = document.getElementById('goal-id').value;
             const title = document.getElementById('goal-title-input').value.trim();
@@ -333,56 +396,79 @@
 
             if (!title) return;
 
-            if (id) {
-                // Edit
-                goals = goals.map(g => g.id === id ? { ...g, title, category, priority, owner, dueDate, desc } : g);
-                showToast('目標更新成功');
-            } else {
-                // Add
-                const newGoal = {
-                    id: Date.now().toString(),
-                    title,
-                    category,
-                    priority,
-                    owner,
-                    dueDate,
-                    desc,
-                    completed: false
-                };
-                goals.unshift(newGoal);
-                showToast('成功新增目標');
-            }
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '儲存中...';
 
-            saveData();
-            closeModal();
-            renderGoals();
-        }
+            try {
+                const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'goals');
 
-        // Toggle goal completion status
-        function toggleGoalStatus(id) {
-            goals = goals.map(g => {
-                if (g.id === id) {
-                    const newStatus = !g.completed;
-                    showToast(newStatus ? '已確認完成目標！' : '已標記為未完成');
-                    return { ...g, completed: newStatus };
+                if (id) {
+                    // Update existing goal in Firestore
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'goals', id);
+                    await updateDoc(docRef, {
+                        title,
+                        category,
+                        priority,
+                        owner,
+                        dueDate,
+                        desc,
+                        updatedAt: Date.now()
+                    });
+                    showToast('目標更新成功 (全團隊即時同步)');
+                } else {
+                    // Add new goal to Firestore
+                    await addDoc(collectionRef, {
+                        title,
+                        category,
+                        priority,
+                        owner,
+                        dueDate,
+                        desc,
+                        completed: false,
+                        createdAt: Date.now()
+                    });
+                    showToast('成功新增目標 (全團隊即時同步)');
                 }
-                return g;
-            });
-            saveData();
-            renderGoals();
-        }
 
-        // Delete goal
-        function deleteGoal(id) {
-            if (confirm('確定要刪除這個目標嗎？')) {
-                goals = goals.filter(g => g.id !== id);
-                saveData();
-                renderGoals();
-                showToast('目標已刪除', false);
+                closeModal();
+            } catch (err) {
+                console.error("Error saving goal:", err);
+                showToast("儲存失敗，請重試", false);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '儲存目標';
             }
         }
 
-        // Switch Tabs
+        async function toggleGoalStatus(id) {
+            const goal = goals.find(g => g.id === id);
+            if (!goal) return;
+
+            const newStatus = !goal.completed;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'goals', id);
+                await updateDoc(docRef, { completed: newStatus });
+                showToast(newStatus ? '已確認完成目標！' : '已標記為未完成');
+            } catch (err) {
+                console.error("Error toggling status:", err);
+                showToast("更新狀態失敗", false);
+            }
+        }
+
+        async function deleteGoal(id) {
+            if (confirm('確定要從雲端刪除這個團隊目標嗎？')) {
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'goals', id);
+                    await deleteDoc(docRef);
+                    showToast('目標已刪除', false);
+                } catch (err) {
+                    console.error("Error deleting goal:", err);
+                    showToast("刪除失敗", false);
+                }
+            }
+        }
+
         function switchTab(tab) {
             currentTab = tab;
             ['all', 'short', 'mid', 'long'].forEach(t => {
@@ -396,7 +482,6 @@
             renderGoals();
         }
 
-        // Render Dashboard Statistics
         function updateDashboardStats() {
             const categories = ['short', 'mid', 'long'];
             
@@ -412,18 +497,17 @@
             });
         }
 
-        // Render Goals List
         function renderGoals() {
             updateDashboardStats();
 
             const container = document.getElementById('goals-container');
             const emptyState = document.getElementById('empty-state');
-            const searchQuery = document.getElementById('search-input').value.toLowerCase();
+            const searchInput = document.getElementById('search-input');
+            const searchQuery = searchInput ? searchInput.value.toLowerCase() : '';
 
-            // Filter by tab and search query
             let filtered = goals.filter(g => {
                 const matchesTab = currentTab === 'all' || g.category === currentTab;
-                const matchesSearch = g.title.toLowerCase().includes(searchQuery) || (g.owner && g.owner.toLowerCase().includes(searchQuery));
+                const matchesSearch = (g.title && g.title.toLowerCase().includes(searchQuery)) || (g.owner && g.owner.toLowerCase().includes(searchQuery));
                 return matchesTab && matchesSearch;
             });
 
@@ -459,15 +543,15 @@
                         
                         <div class="space-y-1">
                             <div class="flex flex-wrap items-center gap-2">
-                                <span class="px-2 py-0.5 text-xs font-semibold rounded-md ${categoryNames[g.category].color}">
-                                    ${categoryNames[g.category].label}
+                                <span class="px-2 py-0.5 text-xs font-semibold rounded-md ${categoryNames[g.category] ? categoryNames[g.category].color : 'bg-slate-100 text-slate-700'}">
+                                    ${categoryNames[g.category] ? categoryNames[g.category].label : '其他'}
                                 </span>
-                                <span class="px-2 py-0.5 text-xs font-medium rounded-md border ${priorityBadges[g.priority].color}">
-                                    優先級: ${priorityBadges[g.priority].label}
+                                <span class="px-2 py-0.5 text-xs font-medium rounded-md border ${priorityBadges[g.priority] ? priorityBadges[g.priority].color : 'bg-slate-100 text-slate-700'}">
+                                    優先級: ${priorityBadges[g.priority] ? priorityBadges[g.priority].label : '中'}
                                 </span>
                             </div>
                             <h4 class="text-base font-semibold text-slate-900 dark:text-white ${g.completed ? 'completed-task' : ''}">
-                                ${escapeHtml(g.title)}
+                                ${escapeHtml(g.title || '')}
                             </h4>
                             ${g.desc ? `<p class="text-xs text-slate-500 dark:text-slate-400 ${g.completed ? 'opacity-50' : ''}">${escapeHtml(g.desc)}</p>` : ''}
                             
@@ -491,10 +575,19 @@
             `).join('');
         }
 
-        // Utility to prevent XSS
         function escapeHtml(str) {
             return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
+
+        // Run initialization
+        initApp();
     </script>
 </body>
 </html>
+```
+@@eof
+
+### 升級特色說明：
+1. **即時雲端同步 (Real-time Firestore)**：已成功整合您提供的 Firebase 專案設定。現在只要團隊成員在各自的手機或電腦上新增、修改或點擊完成目標，**所有人的畫面會立即自動更新**，再也不會有資料不同步的問題！
+2. **完整目標管理**：包含短程（Sprint）、中程（Quarter）、長程（Vision）目標分類、優先級標籤、負責人與截止日期。
+3. **響應式設計與深色模式**：支援手機與電腦瀏覽，並且有極佳的視覺體驗與流暢的動畫回饋。
